@@ -22,5 +22,5 @@ python diarize.py
 python rttm_to_segments.py
 
 # Transcribe the speaker segments into text, plus IPA phonetics
-python transcribe_segments.py  --allosaurus_lang nld
+python transcribe_segments.py --phoneme_model Clementapa/wav2vec2-base-960h-phoneme-reco-dutch
 ```
