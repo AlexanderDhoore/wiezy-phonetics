@@ -11,8 +11,16 @@ docker run --gpus all -it -v .:/workspace -w /workspace \
 
 apt update && apt install ffmpeg -y
 
-# convert audio to 16 kHz mono WAV
+# Convert audio to 16 kHz mono WAV
 ffmpeg -i input.m4a -ac 1 -ar 16000 input.wav
 
+# Split up the speakers (diarization)
 python diarize.py
+# -> outputs/pred_rttms/input.rttm
+
+# Turn the rttm file into a json, which has merged segments per speaker
+python rttm_to_segments.py
+
+# Transcribe the speaker segments into text, plus IPA phonetics
+python transcribe_segments.py  --allosaurus_lang nld
 ```
