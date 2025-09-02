@@ -5,7 +5,10 @@ import numpy as np
 import soundfile as sf
 import torch
 import whisper
-from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
+from transformers import (
+    AutoProcessor, Wav2Vec2Processor, Wav2Vec2ForCTC,
+    Wav2Vec2CTCTokenizer, Wav2Vec2FeatureExtractor
+)
 
 def mm_ss(t: float) -> str:
     """Format seconds -> 'MM:SS' (zero-padded)."""
@@ -56,7 +59,23 @@ def main():
     wmodel = whisper.load_model(args.whisper_model, device=device)
 
     # Phoneme model setup
-    ph_processor = Wav2Vec2Processor.from_pretrained(args.phoneme_model)
+    def load_phoneme_processor(name: str):
+        # 1) try the standard processor
+        try:
+            return Wav2Vec2Processor.from_pretrained(name)
+        except Exception:
+            pass
+        # 2) try AutoProcessor (some repos only define this)
+        try:
+            return AutoProcessor.from_pretrained(name)
+        except Exception:
+            pass
+        # 3) final fallback: compose from tokenizer + feature extractor
+        tok = Wav2Vec2CTCTokenizer.from_pretrained(name)
+        fe  = Wav2Vec2FeatureExtractor.from_pretrained(name)
+        return Wav2Vec2Processor(tokenizer=tok, feature_extractor=fe)
+
+    ph_processor = load_phoneme_processor(args.phoneme_model)
     ph_model = Wav2Vec2ForCTC.from_pretrained(args.phoneme_model).to(device)
     ph_model.eval()
 
