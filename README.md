@@ -28,5 +28,8 @@ python diarize.py
 python rttm_to_segments.py
 
 # Transcribe the speaker segments into text, plus IPA phonetics
+python transcribe_segments.py
+
+# Or for a Dutch-only model (although I'm not sure if it's actually better):
 python transcribe_segments.py --phoneme_model Clementapa/wav2vec2-base-960h-phoneme-reco-dutch
 ```
