@@ -2,7 +2,10 @@
 import argparse
 import json
 import numpy as np
-import soundfile as sf  # pip install soundfile
+import soundfile as sf
+import torch
+import whisper
+from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
 
 def mm_ss(t: float) -> str:
     """Format seconds -> 'MM:SS' (zero-padded)."""
@@ -22,22 +25,18 @@ def slice_audio(audio: np.ndarray, sr: int, start: float, end: float) -> np.ndar
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Per-segment transcription: Whisper (Dutch text) + HF phoneme model (IPA-like)."
+        description="Per-segment transcription: Whisper (text) + Phoneme model (IPA)."
     )
     ap.add_argument("--wav", default="input.wav", help="Mono 16 kHz WAV.")
     ap.add_argument("--segments", default="segments.json", help="Merged segments JSON.")
-    ap.add_argument("--out", default="transcript_both.txt", help="Output text file.")
-
-    # Whisper settings
-    ap.add_argument("--whisper_model", default="large-v3",
-                    help="Whisper model (tiny/base/small/medium/large-v3). Default: large-v3")
+    ap.add_argument("--out", default="transcript.txt", help="Output text file.")
     ap.add_argument("--device", default=None, choices=["cpu", "cuda"],
                     help="Force device (default: auto).")
-
-    # Hugging Face phoneme model (IPA-like) settings
+    ap.add_argument("--whisper_model", default="large-v3",
+                    help="Whisper model (tiny/base/small/medium/large-v3). Default: large-v3")
     ap.add_argument("--phoneme_model",
                     default="facebook/wav2vec2-lv-60-espeak-cv-ft",
-                    help="HF phoneme CTC model. For Dutch-only, try "
+                    help="Phoneme CTC model. For Dutch-only, try "
                          "'Clementapa/wav2vec2-base-960h-phoneme-reco-dutch'.")
     args = ap.parse_args()
 
@@ -52,26 +51,11 @@ def main():
     with open(args.segments, "r", encoding="utf-8") as f:
         segments = json.load(f)
 
-    # --- Whisper setup ---
-    try:
-        import torch
-        import whisper  # pip install openai-whisper
-    except Exception as e:
-        raise SystemExit(
-            "Missing dependency. Install with:\n  pip install openai-whisper soundfile transformers\n"
-            f"Details: {e}"
-        )
+    # Whisper setup
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     wmodel = whisper.load_model(args.whisper_model, device=device)
 
-    # --- HF phoneme model setup (IPA-like) ---
-    try:
-        from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC  # pip install transformers
-    except Exception as e:
-        raise SystemExit(
-            "Missing dependency. Install with:\n  pip install transformers\n"
-            f"Details: {e}"
-        )
+    # Phoneme model setup
     ph_processor = Wav2Vec2Processor.from_pretrained(args.phoneme_model)
     ph_model = Wav2Vec2ForCTC.from_pretrained(args.phoneme_model).to(device)
     ph_model.eval()
@@ -81,14 +65,14 @@ def main():
         for seg in segments:
             start = float(seg["start"])
             end = float(seg["end"])
-            spk = seg.get("speaker", "unknown")
+            spk = seg["speaker"]
             tstamp = mm_ss(start)
 
             clip = slice_audio(audio, sr, start, end)
             if clip.size == 0:
                 continue
 
-            # Whisper (Dutch text)
+            # Whisper model (text)
             wres = wmodel.transcribe(
                 clip,
                 language="nl",
@@ -102,7 +86,7 @@ def main():
             wtext = (wres.get("text") or "").strip()
             f.write(f"{tstamp} | {spk} | {wtext}\n")
 
-            # HF phoneme model (IPA-like/eSpeak inventory)
+            # Phoneme model (IPA)
             with torch.no_grad():
                 inputs = ph_processor(
                     clip,

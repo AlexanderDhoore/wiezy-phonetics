@@ -1,3 +1,5 @@
 input.m4a
 input.wav
 outputs/
+segments.json
+transcript.txt

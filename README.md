@@ -1,15 +1,21 @@
 
 # Wiezy Phonetics
 
-Transcribe logopedic sessions into IPA for testing schoolchildren.
+Transcribe logopedic sessions into the IPA (International Phonetic Alphabet) for testing with schoolchildren.
 
-## Dump of commands (TODO cleanup)
+* `input.wav`: an audio recording of a therapist and a child having a conversation.
+* `diarize.py`: turns the audio into segments indicating who spoke when (RTTM file).
+* `rttm_to_segments.py`: reads the RTTM file, merges same-speaker segments, and outputs `segments.json`.
+* `transcribe_segments.py`: transcribes the audio in both natural language and IPA.
+
+## Dump of commands
 
 ```bash
 docker run --gpus all -it -v .:/workspace -w /workspace \
     --shm-size=4g nvcr.io/nvidia/nemo:25.07
 
 apt update && apt install ffmpeg -y
+pip install openai-whisper phonemizer
 
 # Convert audio to 16 kHz mono WAV
 ffmpeg -i input.m4a -ac 1 -ar 16000 input.wav
